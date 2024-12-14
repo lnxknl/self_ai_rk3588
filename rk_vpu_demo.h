@@ -12,8 +12,12 @@
 #define MAX_FRAME_WIDTH   3840
 #define MAX_FRAME_HEIGHT  2160
 
+// Size definitions
+#define SZ_1K                           (1024)
+#define SZ_1M                           (SZ_1K * SZ_1K)
+
 // Buffer size for reading input stream
-#define READ_BUF_SIZE     (SZ_1M)
+#define READ_BUF_SIZE                   (SZ_1M)
 #define MAX_FRAMES        300
 
 typedef struct {
