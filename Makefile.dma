@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+TARGET = dma_test
+
+$(TARGET): dma_test.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)
