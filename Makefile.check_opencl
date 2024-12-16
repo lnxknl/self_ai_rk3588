@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+TARGET = check_opencl
+
+$(TARGET): check_opencl.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)

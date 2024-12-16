@@ -71,7 +71,7 @@ int main() {
     err = clGetPlatformIDs(MAX_PLATFORMS, platforms, &num_platforms);
     if (err != CL_SUCCESS) {
         printf("Failed to get platforms: %d\n", err);
-        return -1;
+//        return -1;
     }
     printf("Found %d OpenCL platforms\n", num_platforms);
 
