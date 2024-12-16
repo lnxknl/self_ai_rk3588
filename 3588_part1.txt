@@ -43991,7 +43991,9 @@ Chapter 3 CPU
 3
 
 3.1 Overview
-The RK3588 has a cluster with quad-core Cortex-A55 and quad-core Cortex-A76 of which the
+make clean
+make
+sudo ./cpu_bench
 cores are all single-threaded. Cortex-A55 processor, which is a mid-range, low-power
 processor that implements the ARMv8-A architecture. And the Cortex-A76 core is a highperformance and low-power Arm product that implements the Armv8-A architecture.
 The processor includes following features:
