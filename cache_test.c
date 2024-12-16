@@ -17,9 +17,22 @@
 #define L3_SIZE      (4 * 1024 * 1024) // 4MB L3 cache
 
 // Test parameters
-#define NUM_ITERATIONS 1000000
+#define BASE_ITERATIONS 10000  // Base number of iterations
 #define CACHE_LINE_SIZE 64
 #define MAX_ARRAY_SIZE (8 * 1024 * 1024) // 8MB (larger than L3)
+
+// Adjust iterations based on test size
+static inline int get_iterations(size_t test_size) {
+    if (test_size <= 64 * 1024) {  // L1 cache
+        return BASE_ITERATIONS;
+    } else if (test_size <= 512 * 1024) {  // L2 cache
+        return BASE_ITERATIONS / 10;
+    } else if (test_size <= 4 * 1024 * 1024) {  // L3 cache
+        return BASE_ITERATIONS / 100;
+    } else {  // Main memory
+        return BASE_ITERATIONS / 1000;
+    }
+}
 
 static inline double get_time() {
     struct timespec ts;
@@ -38,30 +51,32 @@ int pin_to_core(int core_id) {
 
 // Sequential access test
 double test_sequential_access(char* array, size_t size) {
+    int iterations = get_iterations(size);
     double start = get_time();
     volatile char sum = 0;  // Prevent optimization
     
-    for (int iter = 0; iter < NUM_ITERATIONS; iter++) {
+    for (int iter = 0; iter < iterations; iter++) {
         for (size_t i = 0; i < size; i += CACHE_LINE_SIZE) {
             sum += array[i];
         }
     }
     
-    return (get_time() - start) / NUM_ITERATIONS;
+    return (get_time() - start) / iterations;
 }
 
 // Random access test
 double test_random_access(char* array, size_t size, size_t* indices, size_t num_indices) {
+    int iterations = get_iterations(size);
     double start = get_time();
     volatile char sum = 0;  // Prevent optimization
     
-    for (int iter = 0; iter < NUM_ITERATIONS; iter++) {
+    for (int iter = 0; iter < iterations; iter++) {
         for (size_t i = 0; i < num_indices; i++) {
             sum += array[indices[i]];
         }
     }
     
-    return (get_time() - start) / NUM_ITERATIONS;
+    return (get_time() - start) / iterations;
 }
 
 void test_cache_level(const char* desc, size_t size, int core) {
