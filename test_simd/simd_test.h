@@ -10,9 +10,9 @@
 #include <sched.h>
 #include <unistd.h>
 
-// Test vector sizes
-#define VECTOR_SIZE (1024 * 1024)  // 1M elements
-#define TEST_ITERATIONS 100
+// Test vector sizes (reduced for more accurate timing)
+#define VECTOR_SIZE (4096)  // 4K elements
+#define TEST_ITERATIONS 1000000  // More iterations for better timing
 
 // Test types
 typedef enum {

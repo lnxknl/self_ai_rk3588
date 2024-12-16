@@ -24,11 +24,25 @@ void float_add_normal(float* a, float* b, float* c, int size) {
 // NEON SIMD floating-point addition
 void float_add_simd(float* a, float* b, float* c, int size) {
     int i;
-    for (i = 0; i <= size - 4; i += 4) {
-        float32x4_t va = vld1q_f32(&a[i]);
-        float32x4_t vb = vld1q_f32(&b[i]);
-        float32x4_t vc = vaddq_f32(va, vb);
-        vst1q_f32(&c[i], vc);
+    for (i = 0; i <= size - 16; i += 16) {
+        float32x4_t va1 = vld1q_f32(&a[i]);
+        float32x4_t vb1 = vld1q_f32(&b[i]);
+        float32x4_t va2 = vld1q_f32(&a[i + 4]);
+        float32x4_t vb2 = vld1q_f32(&b[i + 4]);
+        float32x4_t va3 = vld1q_f32(&a[i + 8]);
+        float32x4_t vb3 = vld1q_f32(&b[i + 8]);
+        float32x4_t va4 = vld1q_f32(&a[i + 12]);
+        float32x4_t vb4 = vld1q_f32(&b[i + 12]);
+
+        float32x4_t vc1 = vaddq_f32(va1, vb1);
+        float32x4_t vc2 = vaddq_f32(va2, vb2);
+        float32x4_t vc3 = vaddq_f32(va3, vb3);
+        float32x4_t vc4 = vaddq_f32(va4, vb4);
+
+        vst1q_f32(&c[i], vc1);
+        vst1q_f32(&c[i + 4], vc2);
+        vst1q_f32(&c[i + 8], vc3);
+        vst1q_f32(&c[i + 12], vc4);
     }
     // Handle remaining elements
     for (; i < size; i++) {
@@ -46,11 +60,25 @@ void float_mul_normal(float* a, float* b, float* c, int size) {
 // NEON SIMD floating-point multiplication
 void float_mul_simd(float* a, float* b, float* c, int size) {
     int i;
-    for (i = 0; i <= size - 4; i += 4) {
-        float32x4_t va = vld1q_f32(&a[i]);
-        float32x4_t vb = vld1q_f32(&b[i]);
-        float32x4_t vc = vmulq_f32(va, vb);
-        vst1q_f32(&c[i], vc);
+    for (i = 0; i <= size - 16; i += 16) {
+        float32x4_t va1 = vld1q_f32(&a[i]);
+        float32x4_t vb1 = vld1q_f32(&b[i]);
+        float32x4_t va2 = vld1q_f32(&a[i + 4]);
+        float32x4_t vb2 = vld1q_f32(&b[i + 4]);
+        float32x4_t va3 = vld1q_f32(&a[i + 8]);
+        float32x4_t vb3 = vld1q_f32(&b[i + 8]);
+        float32x4_t va4 = vld1q_f32(&a[i + 12]);
+        float32x4_t vb4 = vld1q_f32(&b[i + 12]);
+
+        float32x4_t vc1 = vmulq_f32(va1, vb1);
+        float32x4_t vc2 = vmulq_f32(va2, vb2);
+        float32x4_t vc3 = vmulq_f32(va3, vb3);
+        float32x4_t vc4 = vmulq_f32(va4, vb4);
+
+        vst1q_f32(&c[i], vc1);
+        vst1q_f32(&c[i + 4], vc2);
+        vst1q_f32(&c[i + 8], vc3);
+        vst1q_f32(&c[i + 12], vc4);
     }
     for (; i < size; i++) {
         c[i] = a[i] * b[i];
@@ -67,12 +95,29 @@ void float_fma_normal(float* a, float* b, float* c, float* d, int size) {
 // NEON SIMD FMA
 void float_fma_simd(float* a, float* b, float* c, float* d, int size) {
     int i;
-    for (i = 0; i <= size - 4; i += 4) {
-        float32x4_t va = vld1q_f32(&a[i]);
-        float32x4_t vb = vld1q_f32(&b[i]);
-        float32x4_t vc = vld1q_f32(&c[i]);
-        float32x4_t vd = vfmaq_f32(vc, va, vb);  // d = a * b + c
-        vst1q_f32(&d[i], vd);
+    for (i = 0; i <= size - 16; i += 16) {
+        float32x4_t va1 = vld1q_f32(&a[i]);
+        float32x4_t vb1 = vld1q_f32(&b[i]);
+        float32x4_t vc1 = vld1q_f32(&c[i]);
+        float32x4_t va2 = vld1q_f32(&a[i + 4]);
+        float32x4_t vb2 = vld1q_f32(&b[i + 4]);
+        float32x4_t vc2 = vld1q_f32(&c[i + 4]);
+        float32x4_t va3 = vld1q_f32(&a[i + 8]);
+        float32x4_t vb3 = vld1q_f32(&b[i + 8]);
+        float32x4_t vc3 = vld1q_f32(&c[i + 8]);
+        float32x4_t va4 = vld1q_f32(&a[i + 12]);
+        float32x4_t vb4 = vld1q_f32(&b[i + 12]);
+        float32x4_t vc4 = vld1q_f32(&c[i + 12]);
+
+        float32x4_t vd1 = vfmaq_f32(vc1, va1, vb1);
+        float32x4_t vd2 = vfmaq_f32(vc2, va2, vb2);
+        float32x4_t vd3 = vfmaq_f32(vc3, va3, vb3);
+        float32x4_t vd4 = vfmaq_f32(vc4, va4, vb4);
+
+        vst1q_f32(&d[i], vd1);
+        vst1q_f32(&d[i + 4], vd2);
+        vst1q_f32(&d[i + 8], vd3);
+        vst1q_f32(&d[i + 12], vd4);
     }
     for (; i < size; i++) {
         d[i] = a[i] * b[i] + c[i];
@@ -89,11 +134,25 @@ void int_add_normal(int32_t* a, int32_t* b, int32_t* c, int size) {
 // NEON SIMD integer addition
 void int_add_simd(int32_t* a, int32_t* b, int32_t* c, int size) {
     int i;
-    for (i = 0; i <= size - 4; i += 4) {
-        int32x4_t va = vld1q_s32(&a[i]);
-        int32x4_t vb = vld1q_s32(&b[i]);
-        int32x4_t vc = vaddq_s32(va, vb);
-        vst1q_s32(&c[i], vc);
+    for (i = 0; i <= size - 16; i += 16) {
+        int32x4_t va1 = vld1q_s32(&a[i]);
+        int32x4_t vb1 = vld1q_s32(&b[i]);
+        int32x4_t va2 = vld1q_s32(&a[i + 4]);
+        int32x4_t vb2 = vld1q_s32(&b[i + 4]);
+        int32x4_t va3 = vld1q_s32(&a[i + 8]);
+        int32x4_t vb3 = vld1q_s32(&b[i + 8]);
+        int32x4_t va4 = vld1q_s32(&a[i + 12]);
+        int32x4_t vb4 = vld1q_s32(&b[i + 12]);
+
+        int32x4_t vc1 = vaddq_s32(va1, vb1);
+        int32x4_t vc2 = vaddq_s32(va2, vb2);
+        int32x4_t vc3 = vaddq_s32(va3, vb3);
+        int32x4_t vc4 = vaddq_s32(va4, vb4);
+
+        vst1q_s32(&c[i], vc1);
+        vst1q_s32(&c[i + 4], vc2);
+        vst1q_s32(&c[i + 8], vc3);
+        vst1q_s32(&c[i + 12], vc4);
     }
     for (; i < size; i++) {
         c[i] = a[i] + b[i];
@@ -110,11 +169,25 @@ void int_mul_normal(int32_t* a, int32_t* b, int32_t* c, int size) {
 // NEON SIMD integer multiplication
 void int_mul_simd(int32_t* a, int32_t* b, int32_t* c, int size) {
     int i;
-    for (i = 0; i <= size - 4; i += 4) {
-        int32x4_t va = vld1q_s32(&a[i]);
-        int32x4_t vb = vld1q_s32(&b[i]);
-        int32x4_t vc = vmulq_s32(va, vb);
-        vst1q_s32(&c[i], vc);
+    for (i = 0; i <= size - 16; i += 16) {
+        int32x4_t va1 = vld1q_s32(&a[i]);
+        int32x4_t vb1 = vld1q_s32(&b[i]);
+        int32x4_t va2 = vld1q_s32(&a[i + 4]);
+        int32x4_t vb2 = vld1q_s32(&b[i + 4]);
+        int32x4_t va3 = vld1q_s32(&a[i + 8]);
+        int32x4_t vb3 = vld1q_s32(&b[i + 8]);
+        int32x4_t va4 = vld1q_s32(&a[i + 12]);
+        int32x4_t vb4 = vld1q_s32(&b[i + 12]);
+
+        int32x4_t vc1 = vmulq_s32(va1, vb1);
+        int32x4_t vc2 = vmulq_s32(va2, vb2);
+        int32x4_t vc3 = vmulq_s32(va3, vb3);
+        int32x4_t vc4 = vmulq_s32(va4, vb4);
+
+        vst1q_s32(&c[i], vc1);
+        vst1q_s32(&c[i + 4], vc2);
+        vst1q_s32(&c[i + 8], vc3);
+        vst1q_s32(&c[i + 12], vc4);
     }
     for (; i < size; i++) {
         c[i] = a[i] * b[i];
