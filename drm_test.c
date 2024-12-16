@@ -8,7 +8,6 @@
 #include <gbm.h>
 #include <GLES3/gl32.h>
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
 
 #define EXIT_ON_ERROR(msg) \
     do { \
@@ -87,11 +86,7 @@ int main() {
     }
 
     // Get EGL display
-    display = eglGetPlatformDisplayEXT(
-        EGL_PLATFORM_GBM_KHR,
-        gbm,
-        NULL
-    );
+    display = eglGetDisplay((EGLNativeDisplayType)gbm);
     if (display == EGL_NO_DISPLAY) {
         printf("Failed to get EGL display\n");
         goto cleanup;
