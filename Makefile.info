@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+TARGET = mali_info
+
+$(TARGET): mali_info.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)
