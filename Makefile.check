@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+TARGET = check_display
+
+$(TARGET): check_display.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)
