@@ -1,0 +1,11 @@
+CC = gcc
+CFLAGS = -Wall -O2
+TARGET = smmu_test
+
+all: $(TARGET)
+
+$(TARGET): $(TARGET).c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)
