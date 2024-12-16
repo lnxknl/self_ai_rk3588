@@ -1,0 +1,17 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lGLESv2 -lEGL -lm -lX11 -ldrm -lgbm
+
+# For Mali GPU on RK3588
+INCLUDES = -I/usr/include/libdrm \
+          -I/usr/include/gbm \
+          -I/usr/include/GLES3 \
+          -I/usr/include/EGL
+
+TARGET = mali_gpu_test
+
+$(TARGET): mali_gpu_test.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
