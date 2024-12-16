@@ -19,12 +19,19 @@
 #define CRU_CLKGATE_CON0   0x0800
 #define CRU_SOFTRST_CON0   0x0A00
 
-// Clock Gates
-#define PCLK_GPIO1_GATE    (1 << 3)
-#define HCLK_SDMMC_GATE    (1 << 4)
-#define ACLK_USB3_GATE     (1 << 5)
+// PLL Configuration Masks
+#define PLL_POSTDIV1_MASK  (0x7 << 12)
+#define PLL_POSTDIV2_MASK  (0x7 << 6)
+#define PLL_REFDIV_MASK    (0x3f << 0)
+#define PLL_FBDIV_MASK     (0xfff << 0)
 
-// PLL Configuration
+// PLL Configuration Shifts
+#define PLL_POSTDIV1_SHIFT 12
+#define PLL_POSTDIV2_SHIFT 6
+#define PLL_REFDIV_SHIFT   0
+#define PLL_FBDIV_SHIFT    0
+
+// PLL Status and Control
 #define PLL_POWER_DOWN     (1 << 0)
 #define PLL_POWER_UP       (0 << 0)
 #define PLL_LOCK_STATUS    (1 << 31)
@@ -33,6 +40,15 @@ typedef struct {
     int mem_fd;
     void *cru_base;
 } cru_context_t;
+
+// PLL configuration structure
+typedef struct {
+    uint32_t rate;      // Target rate in Hz
+    uint32_t fbdiv;     // Feedback divider
+    uint32_t postdiv1;  // Post divider 1
+    uint32_t postdiv2;  // Post divider 2
+    uint32_t refdiv;    // Reference clock divider
+} pll_config_t;
 
 // Initialize CRU access
 static int cru_init(cru_context_t *ctx) {
@@ -73,45 +89,77 @@ static void cru_write(cru_context_t *ctx, uint32_t offset, uint32_t value) {
     *(volatile uint32_t*)((char*)ctx->cru_base + offset) = value;
 }
 
-// Configure GPLL (General Purpose PLL)
+// Calculate PLL parameters for target frequency
+static void calculate_pll_config(uint32_t target_hz, pll_config_t *config) {
+    const uint32_t ref_hz = 24000000;  // 24MHz reference clock
+    uint32_t vco_hz;
+    
+    config->rate = target_hz;
+    
+    // VCO should be between 800MHz and 2000MHz
+    if (target_hz < 400000000) {
+        config->postdiv1 = 2;
+        config->postdiv2 = 1;
+        vco_hz = target_hz * 2;
+    } else {
+        config->postdiv1 = 1;
+        config->postdiv2 = 1;
+        vco_hz = target_hz;
+    }
+
+    // Use refdiv=1 for simplicity
+    config->refdiv = 1;
+    
+    // Calculate feedback divider
+    config->fbdiv = vco_hz / (ref_hz / config->refdiv);
+    
+    printf("PLL Config: fbdiv=%d, postdiv1=%d, postdiv2=%d, refdiv=%d\n",
+           config->fbdiv, config->postdiv1, config->postdiv2, config->refdiv);
+}
+
+// Configure GPLL
 static int configure_gpll(cru_context_t *ctx, uint32_t rate_hz) {
-    uint32_t value;
+    pll_config_t config;
+    uint32_t v;
+    
+    calculate_pll_config(rate_hz, &config);
     
     // Power down PLL first
-    value = cru_read(ctx, CRU_GPLL_CON0);
-    value |= PLL_POWER_DOWN;
-    cru_write(ctx, CRU_GPLL_CON0, value);
+    v = cru_read(ctx, CRU_GPLL_CON0);
+    v |= PLL_POWER_DOWN;
+    cru_write(ctx, CRU_GPLL_CON0, v);
     usleep(10);
 
-    // Calculate PLL parameters (simplified example)
-    uint32_t fbdiv = rate_hz / 24000000;  // Assuming 24MHz reference
-    
     // Set PLL parameters
-    value = (fbdiv << 8) | PLL_POWER_UP;
-    cru_write(ctx, CRU_GPLL_CON0, value);
+    // CON0: fbdiv
+    v = (config.fbdiv << PLL_FBDIV_SHIFT) & PLL_FBDIV_MASK;
+    cru_write(ctx, CRU_GPLL_CON0, v);
+
+    // CON1: postdiv1, postdiv2, refdiv
+    v = ((config.postdiv1 << PLL_POSTDIV1_SHIFT) & PLL_POSTDIV1_MASK) |
+        ((config.postdiv2 << PLL_POSTDIV2_SHIFT) & PLL_POSTDIV2_MASK) |
+        ((config.refdiv << PLL_REFDIV_SHIFT) & PLL_REFDIV_MASK);
+    cru_write(ctx, CRU_GPLL_CON1, v);
+
+    // Power up PLL
+    v = cru_read(ctx, CRU_GPLL_CON0);
+    v &= ~PLL_POWER_DOWN;  // Clear power down bit
+    cru_write(ctx, CRU_GPLL_CON0, v);
 
     // Wait for PLL lock
     int timeout = 1000;
     while (timeout--) {
         if (cru_read(ctx, CRU_GPLL_CON0) & PLL_LOCK_STATUS) {
+            printf("PLL locked, timeout remaining: %d\n", timeout);
             return 0;
         }
         usleep(1);
     }
 
-    printf("Failed to lock GPLL\n");
+    printf("Failed to lock GPLL (CON0=0x%08x, CON1=0x%08x)\n",
+           cru_read(ctx, CRU_GPLL_CON0),
+           cru_read(ctx, CRU_GPLL_CON1));
     return -1;
-}
-
-// Enable/disable peripheral clock
-static void set_peripheral_clock(cru_context_t *ctx, uint32_t gate_offset, uint32_t gate_mask, int enable) {
-    uint32_t value = cru_read(ctx, gate_offset);
-    if (enable) {
-        value &= ~gate_mask;  // Clear bit to enable clock
-    } else {
-        value |= gate_mask;   // Set bit to disable clock
-    }
-    cru_write(ctx, gate_offset, value);
 }
 
 // Monitor clock status
@@ -119,63 +167,19 @@ static void monitor_clocks(cru_context_t *ctx) {
     printf("\nClock Status:\n");
     printf("------------\n");
 
-    // Read GPLL status
     uint32_t gpll_con0 = cru_read(ctx, CRU_GPLL_CON0);
-    printf("GPLL: %s, %s\n",
+    uint32_t gpll_con1 = cru_read(ctx, CRU_GPLL_CON1);
+    
+    printf("GPLL:\n");
+    printf("  Status: %s, %s\n",
            (gpll_con0 & PLL_POWER_DOWN) ? "Powered Down" : "Powered Up",
            (gpll_con0 & PLL_LOCK_STATUS) ? "Locked" : "Unlocked");
-
-    // Read clock gates
-    uint32_t gate_con0 = cru_read(ctx, CRU_CLKGATE_CON0);
-    printf("Clock Gates:\n");
-    printf("  PCLK_GPIO1: %s\n", (gate_con0 & PCLK_GPIO1_GATE) ? "Disabled" : "Enabled");
-    printf("  HCLK_SDMMC: %s\n", (gate_con0 & HCLK_SDMMC_GATE) ? "Disabled" : "Enabled");
-    printf("  ACLK_USB3:  %s\n", (gate_con0 & ACLK_USB3_GATE) ? "Disabled" : "Enabled");
-}
-
-// Test different clock configurations
-static void test_clock_configs(cru_context_t *ctx) {
-    printf("\nTesting Clock Configurations:\n");
-    printf("--------------------------\n");
-
-    // Test GPLL configurations
-    uint32_t test_freqs[] = {
-        600000000,  // 600 MHz
-        800000000,  // 800 MHz
-        1000000000, // 1.0 GHz
-        1200000000  // 1.2 GHz
-    };
-
-    for (int i = 0; i < sizeof(test_freqs)/sizeof(test_freqs[0]); i++) {
-        printf("\nTesting GPLL at %u Hz... ", test_freqs[i]);
-        if (configure_gpll(ctx, test_freqs[i]) == 0) {
-            printf("Success\n");
-        } else {
-            printf("Failed\n");
-        }
-        monitor_clocks(ctx);
-        sleep(1);
-    }
-
-    // Test peripheral clocks
-    printf("\nTesting Peripheral Clocks:\n");
-    
-    printf("Enabling PCLK_GPIO1... ");
-    set_peripheral_clock(ctx, CRU_CLKGATE_CON0, PCLK_GPIO1_GATE, 1);
-    printf("Done\n");
-    monitor_clocks(ctx);
-    sleep(1);
-
-    printf("\nEnabling HCLK_SDMMC... ");
-    set_peripheral_clock(ctx, CRU_CLKGATE_CON0, HCLK_SDMMC_GATE, 1);
-    printf("Done\n");
-    monitor_clocks(ctx);
-    sleep(1);
-
-    printf("\nEnabling ACLK_USB3... ");
-    set_peripheral_clock(ctx, CRU_CLKGATE_CON0, ACLK_USB3_GATE, 1);
-    printf("Done\n");
-    monitor_clocks(ctx);
+    printf("  CON0: 0x%08x\n", gpll_con0);
+    printf("  CON1: 0x%08x\n", gpll_con1);
+    printf("  FBDIV: %d\n", (gpll_con0 & PLL_FBDIV_MASK) >> PLL_FBDIV_SHIFT);
+    printf("  POSTDIV1: %d\n", (gpll_con1 & PLL_POSTDIV1_MASK) >> PLL_POSTDIV1_SHIFT);
+    printf("  POSTDIV2: %d\n", (gpll_con1 & PLL_POSTDIV2_MASK) >> PLL_POSTDIV2_SHIFT);
+    printf("  REFDIV: %d\n", (gpll_con1 & PLL_REFDIV_MASK) >> PLL_REFDIV_SHIFT);
 }
 
 int main() {
@@ -184,8 +188,8 @@ int main() {
         .cru_base = MAP_FAILED
     };
 
-    printf("RK3588 CRU Test\n");
-    printf("==============\n");
+    printf("RK3588 CRU Test (Enhanced PLL Configuration)\n");
+    printf("==========================================\n");
 
     if (cru_init(&ctx) < 0) {
         return -1;
@@ -195,10 +199,25 @@ int main() {
     printf("\nInitial Clock Status:\n");
     monitor_clocks(&ctx);
 
-    // Run clock configuration tests
-    test_clock_configs(&ctx);
+    // Test frequencies
+    uint32_t test_freqs[] = {
+        408000000,  // 408 MHz
+        600000000,  // 600 MHz
+        816000000,  // 816 MHz
+        1008000000  // 1008 MHz
+    };
 
-    // Clean up
+    for (int i = 0; i < sizeof(test_freqs)/sizeof(test_freqs[0]); i++) {
+        printf("\nTesting GPLL at %u Hz...\n", test_freqs[i]);
+        if (configure_gpll(&ctx, test_freqs[i]) == 0) {
+            printf("Success\n");
+        } else {
+            printf("Failed\n");
+        }
+        monitor_clocks(&ctx);
+        sleep(1);
+    }
+
     cru_cleanup(&ctx);
     return 0;
 }
