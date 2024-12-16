@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lrt
+TARGET = w25q80_dma_test
+
+$(TARGET): w25q80_dma_test.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
