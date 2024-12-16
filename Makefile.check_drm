@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -ldrm
+INCLUDES = -I/usr/include/libdrm
+
+TARGET = drm_check
+
+$(TARGET): drm_check.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
