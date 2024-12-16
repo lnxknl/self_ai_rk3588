@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <errno.h>
 
 void check_mali_driver() {
     printf("Checking Mali GPU Driver Status:\n");
