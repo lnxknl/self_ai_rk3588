@@ -24,6 +24,9 @@ typedef struct {
 
 shared_data_t *shared_data;
 
+// Store thread IDs for each core
+pthread_t core_threads[NUM_CORES];
+
 // Signal handler for our IPI simulation
 void signal_handler(int signo, siginfo_t *info, void *context) {
     int core_id = sched_getcpu();
@@ -59,13 +62,17 @@ int pin_to_core(int core_id) {
 void* core_worker(void *arg) {
     int core_id = *(int*)arg;
     
+    // Store thread ID for this core
+    core_threads[core_id] = pthread_self();
+    
     // Pin this thread to its designated core
     if (pin_to_core(core_id) != 0) {
         printf("Failed to pin thread to core %d\n", core_id);
         return NULL;
     }
     
-    printf("Worker thread started on core %d\n", core_id);
+    printf("Worker thread started on core %d (tid: %lu)\n", 
+           core_id, (unsigned long)pthread_self());
     
     // Set up IPI handling
     setup_signal_handling();
@@ -87,18 +94,11 @@ void* core_worker(void *arg) {
 
 // Send IPI to specific core
 void send_ipi(int target_core) {
-    // Find thread ID for target core
-    for (int i = 0; i < NUM_CORES; i++) {
-        char path[64];
-        snprintf(path, sizeof(path), "/proc/self/task/%ld/cpu", syscall(SYS_gettid));
-        FILE *f = fopen(path, "r");
-        if (f) {
-            int cpu;
-            if (fscanf(f, "%d", &cpu) == 1 && cpu == target_core) {
-                pthread_kill(pthread_self(), SIGUSR1);
-                break;
-            }
-            fclose(f);
+    if (target_core >= 0 && target_core < NUM_CORES) {
+        pthread_t target_thread = core_threads[target_core];
+        if (target_thread) {
+            printf("Sending IPI to core %d\n", target_core);
+            pthread_kill(target_thread, SIGUSR1);
         }
     }
 }
@@ -112,22 +112,25 @@ void test_interrupt_pattern() {
     printf("\nTest 1: A76 (Core 4) to A55 (Core 0) communication\n");
     for (int i = 0; i < 5; i++) {
         send_ipi(0); // Send from A76 to A55
-        usleep(1000);
+        usleep(10000); // Wait longer between signals
     }
     
     // Test 2: A55 to A76 communication
     printf("\nTest 2: A55 (Core 0) to A76 (Core 4) communication\n");
     for (int i = 0; i < 5; i++) {
         send_ipi(4); // Send from A55 to A76
-        usleep(1000);
+        usleep(10000); // Wait longer between signals
     }
     
     // Test 3: Round-robin communication
     printf("\nTest 3: Round-robin communication across all cores\n");
     for (int i = 0; i < NUM_CORES; i++) {
         send_ipi((i + 1) % NUM_CORES);
-        usleep(1000);
+        usleep(10000); // Wait longer between signals
     }
+    
+    // Wait for all signals to be processed
+    usleep(100000);
 }
 
 int main() {
