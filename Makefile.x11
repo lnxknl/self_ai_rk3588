@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lGLESv2 -lEGL -lX11
+INCLUDES = -I/usr/include/GLES3 -I/usr/include/EGL
+
+TARGET = x11_egl_test
+
+$(TARGET): x11_egl_test.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
