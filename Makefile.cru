@@ -1,0 +1,9 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+TARGET = cru_test
+
+$(TARGET): cru_test.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGET)
