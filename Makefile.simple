@@ -1,0 +1,15 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lGLESv2 -lEGL -ldrm -lgbm
+INCLUDES = -I/usr/include/libdrm \
+          -I/usr/include/gbm \
+          -I/usr/include/GLES3 \
+          -I/usr/include/EGL
+
+TARGET = simple_mali_test
+
+$(TARGET): simple_mali_test.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
