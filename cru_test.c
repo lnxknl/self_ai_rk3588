@@ -36,6 +36,13 @@
 #define PLL_POWER_UP       (0 << 0)
 #define PLL_LOCK_STATUS    (1 << 31)
 
+// Write masks (RK3588 specific)
+#define PLL_POSTDIV1_W_MASK  (0x7 << (12 + 16))
+#define PLL_POSTDIV2_W_MASK  (0x7 << (6 + 16))
+#define PLL_REFDIV_W_MASK    (0x3f << 16)
+#define PLL_FBDIV_W_MASK     (0xfff << 16)
+#define PLL_POWER_MASK       (1 << 16)  // Write mask for power bit
+
 typedef struct {
     int mem_fd;
     void *cru_base;
@@ -84,9 +91,11 @@ static uint32_t cru_read(cru_context_t *ctx, uint32_t offset) {
     return *(volatile uint32_t*)((char*)ctx->cru_base + offset);
 }
 
-// Write CRU register
-static void cru_write(cru_context_t *ctx, uint32_t offset, uint32_t value) {
-    *(volatile uint32_t*)((char*)ctx->cru_base + offset) = value;
+// Write CRU register with mask
+static void cru_write_mask(cru_context_t *ctx, uint32_t offset, uint32_t value, uint32_t mask) {
+    uint32_t old = cru_read(ctx, offset);
+    uint32_t new = (old & ~mask) | (value & mask);
+    *(volatile uint32_t*)((char*)ctx->cru_base + offset) = new | (mask << 16);
 }
 
 // Calculate PLL parameters for target frequency
@@ -125,26 +134,23 @@ static int configure_gpll(cru_context_t *ctx, uint32_t rate_hz) {
     calculate_pll_config(rate_hz, &config);
     
     // Power down PLL first
-    v = cru_read(ctx, CRU_GPLL_CON0);
-    v |= PLL_POWER_DOWN;
-    cru_write(ctx, CRU_GPLL_CON0, v);
+    cru_write_mask(ctx, CRU_GPLL_CON0, PLL_POWER_DOWN, PLL_POWER_MASK);
     usleep(10);
 
     // Set PLL parameters
     // CON0: fbdiv
-    v = (config.fbdiv << PLL_FBDIV_SHIFT) & PLL_FBDIV_MASK;
-    cru_write(ctx, CRU_GPLL_CON0, v);
+    v = (config.fbdiv << PLL_FBDIV_SHIFT);
+    cru_write_mask(ctx, CRU_GPLL_CON0, v, PLL_FBDIV_MASK);
 
     // CON1: postdiv1, postdiv2, refdiv
-    v = ((config.postdiv1 << PLL_POSTDIV1_SHIFT) & PLL_POSTDIV1_MASK) |
-        ((config.postdiv2 << PLL_POSTDIV2_SHIFT) & PLL_POSTDIV2_MASK) |
-        ((config.refdiv << PLL_REFDIV_SHIFT) & PLL_REFDIV_MASK);
-    cru_write(ctx, CRU_GPLL_CON1, v);
+    v = (config.postdiv1 << PLL_POSTDIV1_SHIFT) |
+        (config.postdiv2 << PLL_POSTDIV2_SHIFT) |
+        (config.refdiv << PLL_REFDIV_SHIFT);
+    cru_write_mask(ctx, CRU_GPLL_CON1, v, 
+                   PLL_POSTDIV1_MASK | PLL_POSTDIV2_MASK | PLL_REFDIV_MASK);
 
     // Power up PLL
-    v = cru_read(ctx, CRU_GPLL_CON0);
-    v &= ~PLL_POWER_DOWN;  // Clear power down bit
-    cru_write(ctx, CRU_GPLL_CON0, v);
+    cru_write_mask(ctx, CRU_GPLL_CON0, PLL_POWER_UP, PLL_POWER_MASK);
 
     // Wait for PLL lock
     int timeout = 1000;
