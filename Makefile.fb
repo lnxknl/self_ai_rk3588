@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lGLESv2 -lEGL
+INCLUDES = -I/usr/include/GLES3 -I/usr/include/EGL
+
+TARGET = mali_fb_test
+
+$(TARGET): mali_fb_test.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f $(TARGET)
